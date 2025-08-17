@@ -75,6 +75,11 @@ jobs:
         touch .env
         echo "${{ secrets.PROD }}" > .env
 
+              - name: Run backend tests (Jest via npx)
+        working-directory: backend
+        run: npx --yes jest --runInBand
+
+
     - run: pm2 start all
 
     - run: pm2 restart all
