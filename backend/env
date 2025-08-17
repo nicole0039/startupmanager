@@ -1,3 +1,0 @@
-MONGO_URI=mongodb+srv://n12300039:ejoLo2Wh9BQOf8UN@cluster0.lg41ajt.mongodb.net/taskmanager?retryWrites=true&w=majority&appName=Cluster0
-JWT_SECRET=2J8zqkP7VN6bxzg+Wy7DQZsd3Yx8mF3Bl0kch6HYtFs=
-PORT=5001
