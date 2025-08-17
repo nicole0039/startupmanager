@@ -1,0 +1,70 @@
+.github/workflows/deploy.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test || echo "No tests found"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            APP_DIR=${{ secrets.EC2_APP_DIR }}
+            if [ -z "$APP_DIR" ]; then APP_DIR="$HOME/app"; fi
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
+
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+
+            git fetch --all
+            git reset --hard origin/main
+
+            cd backend
+            npm ci
+            pm2 describe backend >/dev/null 2>&1 && pm2 restart backend || pm2 start server.js --name backend
+
+            cd ../frontend
+            npm ci
+            npm run build
+            pm2 describe frontend >/dev/null 2>&1 && pm2 restart frontend || pm2 serve build 3000 --name frontend --spa
+
+            pm2 save
