@@ -1,4 +1,4 @@
-**Project: Startup Incubation Management (name it Catalyst)
+**Project: Startup Incubation Management (Catalyst)
 Description: Support university incubators in tracking startup applicants, assigning mentors, and managing demo days. The application tracks startup applications, mentors, and programs. **
 
 
