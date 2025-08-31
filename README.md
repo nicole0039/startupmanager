@@ -6,7 +6,7 @@ Description: Support university incubators in tracking startup applicants, assig
 
 Features:
 - Create, Edit, Delete Startup Application
-- - Create, Edit, Delete Startup Mentor
+- Create, Edit, Delete Startup Mentor
 
 ## Prerequisites
 
@@ -47,92 +47,126 @@ PORT=5001
 
 ### 3. Installation
 
-cd backend , npm install, npm start
-cd frontend, npm install, npm start
+1. Install backend dependencies:
 
-1. Create a virtual environment (recommended):
-
-   ```
-      python -m venv .venv # Windows/MacOS/Linux
+   ```bash
+   cd backend
+   npm install
    ```
 
-2. Activate project's `.venv`:
+2. Install frontend dependencies:
 
-   ```
-      .venv\Scripts\activate  # Windows
-   ```
-
-   ```
-      source .venv\Scripts\activate  # MacOS/Linux
+   ```bash
+   cd frontend
+   npm install
    ```
 
-3. Install the required packages:
+3. Start the backend server:
 
-   ```
-      pip install -r requirements.txt
+   ```bash
+   cd backend
+   npm start
    ```
 
-4. Initialize the database schema **Only run once time, before execute the command, make sure that you don't connect to existing database**:
-   ```
-      python create-db.py
+4. Start the frontend development server:
+
+   ```bash
+   cd frontend
+   npm start
    ```
 
 ### 4. Running the Application
 
-Start the Flask server:
+The application consists of two parts that need to be running simultaneously:
 
-```
-   Open `app.py` and hit the run button on the top!
-```
+1. **Backend Server**: Runs on port 5001
+2. **Frontend Application**: Runs on port 3000
 
-or `Activate venv` and run:
+Make sure both servers are running for the application to work properly.
 
-```bash
-   flask run --debug
-```
-
-## Framework/Package Management
-
-1. If you have installed a new framework/package, run the following command to declare the new framework/package:
-
-```bash
-   pip freeze > requirements.txt # Notice: The terminal must be `activated` before run this command
-```
-
-The application will be available at `http://localhost:5000/` or `http://127.0.0.1:5000/`
+The application will be available at:
+- **Frontend**: `http://localhost:3000/` or `http://127.0.0.1:3000/`
+- **Backend API**: `http://localhost:5001/` or `http://127.0.0.1:5001/`
 
 ## Project Structure
 
-- `app.py`: Main Flask application file
-- `create-db.py`: Create database
-- `.gitignore`: Declaration of some files we do not want to commit them
-- `.env`: Environment variables (do not push to repository)
-- `.env.example`: As references
-- `database.sql`: Raw SQL excecution
-- `templates/`: HTML templates using Jinja2
-  - `404.html`: Show error 404 message
-  - `500.html`: Show error 500 message
-  - `base.html`: Base template with layout
-  - `index.html`: Home page template
-  - `products.html`: Product page template, which includes filter, product list
-  - `product_details.html`: Product detail page template, which shows more details about the product
-  - `delivery_request.html`: Product detail page template, which shows more details about the product
-  - `auth.html`: Auth page provides some ways to allow user can sign in and sign up
-  - `checkout.html`: Checkout page allows customer to finalise their orders
-- `static/`: Static files (CSS, JavaScript, images)
-  - `img/`: Stores static images or files
-  - `style.css`: Application styling
+```
+startupmanager/
+├── backend/                 # Node.js/Express.js backend
+│   ├── config/
+│   │   └── db.js           # Database configuration
+│   ├── controllers/        # Business logic handlers
+│   │   ├── applicationController.js
+│   │   ├── authController.js
+│   │   ├── mentorController.js
+│   │   └── taskController.js
+│   ├── middleware/
+│   │   └── authMiddleware.js  # Authentication middleware
+│   ├── models/             # MongoDB/Mongoose models
+│   │   ├── Application.js
+│   │   ├── Mentor.js
+│   │   ├── Task.js
+│   │   └── User.js
+│   ├── routes/             # API route definitions
+│   │   ├── applicationRoutes.js
+│   │   ├── authRoutes.js
+│   │   ├── mentorRoutes.js
+│   │   └── taskRoutes.js
+│   ├── __tests__/          # Backend tests
+│   ├── package.json        # Backend dependencies
+│   └── server.js           # Main backend server file
+├── frontend/               # React.js frontend
+│   ├── public/             # Static assets
+│   │   ├── index.html
+│   │   └── favicon.ico
+│   ├── src/
+│   │   ├── components/     # Reusable React components
+│   │   │   ├── ConfirmModal.jsx
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── NotificationModal.jsx
+│   │   │   ├── TaskForm.jsx
+│   │   │   └── TaskList.jsx
+│   │   ├── context/        # React context for state management
+│   │   │   └── AuthContext.js
+│   │   ├── pages/          # Page components
+│   │   │   ├── CatalystApp.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── Profile.jsx
+│   │   │   ├── Register.jsx
+│   │   │   └── Tasks.jsx
+│   │   ├── services/       # API service functions
+│   │   │   └── api.js
+│   │   ├── App.js          # Main React application
+│   │   ├── axiosConfig.jsx # Axios configuration
+│   │   └── index.js        # React entry point
+│   ├── package.json        # Frontend dependencies
+│   └── tailwind.config.js  # Tailwind CSS configuration
+├── .env                    # Environment variables (do not commit)
+├── .gitignore             # Git ignore rules
+├── package.json           # Root package.json
+└── README.md              # This file
+```
+
+### Key Files:
+- **Backend**: `backend/server.js` - Main Express server
+- **Frontend**: `frontend/src/App.js` - Main React application
+- **Database**: MongoDB with Mongoose ODM
+- **Styling**: Tailwind CSS for frontend styling
+- **API**: RESTful API endpoints for CRUD operations
 
 ## Troubleshooting
 
-- If database connection fails, verify your MySQL server is running and credentials in `.env` are correct
-- For issues with Flask routes, check the console for error messages
+- If database connection fails, verify your MongoDb server is running and credentials in `.env` are correct
+- Sometimes MongoDb does not automatically update
+- For issues with routes, check the console for error messages
 
 ---
 
-# Initial Git Instruction 😎💥✍️
+# Initial Git Instructions 😎🔗
 
-🔗[Git-Flow Cheatsheet](https://danielkummer.github.io/git-flow-cheatsheet/)
+1. Pro Git  Author: Scott Chacon, Ben Straub  https://git-scm.com/book/en/v2Links to an external site.
+2. Introduction to version control with Git - Why we want to track versions and how to go back in time to a working version.  https://coderefinery.github.io/git-intro/Links to an external site.
+3. [Git-Flow Cheatsheet](https://danielkummer.github.io/git-flow-cheatsheet/)
 
 1. Common commands:
 
@@ -182,5 +216,5 @@ The application will be available at `http://localhost:5000/` or `http://127.0.0
    4. Switch back to your working branch by using `git check ot <your_branch>`. (replace `<your_branch>` to branch name (e.g: `git checkout db-config`))
    5. Merge `develop` into your working branch by using `git merge develop` (you can change `develop` to your choice).
       <br><br><br><br>
-      <h1 align="center">Lovely Thank you! 💥</h1>
+      <h1 align="center">Perfect, push it! 💥</h1>
 
