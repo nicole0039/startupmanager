@@ -69,7 +69,7 @@ jobs:
 
   test:
     name: Run Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [jira-integration]
     if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
 
@@ -90,18 +90,15 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
-    - name: Print Env Secret
+    - name: Verify Environment Setup
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         PORT: ${{ secrets.PORT }}
       run: | 
-        echo "Secret 1 is: $MONGO_URI"
-        echo "Secret 2 is: $JWT_SECRET"
-        echo "Secret 3 is: $PORT"
-      
-    - name: Stop PM2 processes
-      run: pm2 stop all || true  # Don't fail if no processes are running
+        echo "Environment variables loaded successfully"
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
 
     # Install dependencies for backend
     - name: Install Backend Dependencies
@@ -115,8 +112,6 @@ jobs:
     - name: Install Frontend Dependencies
       working-directory: ./frontend
       run: |
-        df -h
-        sudo rm -rf ./build || true
         yarn install
         yarn run build
 
@@ -138,13 +133,11 @@ jobs:
 
     - name: Run Backend Tests (Jest)
       working-directory: ./backend
+      env:
+        MONGO_URI: ${{ secrets.MONGO_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        PORT: ${{ secrets.PORT }}
       run: npx jest --runInBand
-
-    - name: Start PM2 processes
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        pm2 start all || true
-        pm2 restart all || true
 
   # Job to update Jira when tests pass/fail
   jira-update:
