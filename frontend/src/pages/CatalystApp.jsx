@@ -20,6 +20,8 @@ const CatalystApp = () => {
   const [mentors, setMentors] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  console.log(loading)
+
   // UI State Management
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showModal, setShowModal] = useState(false);
