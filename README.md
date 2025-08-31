@@ -5,8 +5,15 @@
 Description: Support university incubators in tracking startup applicants, assigning mentors, and managing demo days. The application tracks startup applications, mentors, and programs. **
 
 Features:
-- Create, Edit, Delete Startup Application
-- Create, Edit, Delete Startup Mentor
+1: User Authentication & Access Control
+2: Startup Application Management
+ - Create, Edit, Delete Startup Application
+3: Mentor Management & Assignment
+ - Create, Edit, Delete Startup Mentor
+
+*****Ongoing features*****
+4: Demo Day Management
+5: Reporting & Analytics
 
 ## Prerequisites
 
@@ -20,14 +27,6 @@ Features:
 
 
 ## Setup Instructions
-
-Changes :
-* Create an env file for the mongodb config * **
-* Application and Mentor router * ***
-* Application and Mentor model * ***
-* Application and Mentor controller * ***
-* ENV file should be changed for the mongo db connection. * **
-
 ---
 
 ### 1. Database Setup
@@ -102,7 +101,7 @@ startupmanager/
 │   │   └── taskController.js
 │   ├── middleware/
 │   │   └── authMiddleware.js  # Authentication middleware
-│   ├── models/             # MongoDB/Mongoose models
+│   ├── models/             # MongoDB
 │   │   ├── Application.js
 │   │   ├── Mentor.js
 │   │   ├── Task.js
@@ -120,7 +119,7 @@ startupmanager/
 │   │   ├── index.html
 │   │   └── favicon.ico
 │   ├── src/
-│   │   ├── components/     # Reusable React components
+│   │   ├── components/     # React components
 │   │   │   ├── ConfirmModal.jsx
 │   │   │   ├── Navbar.jsx
 │   │   │   ├── NotificationModal.jsx
@@ -137,14 +136,14 @@ startupmanager/
 │   │   ├── services/       # API service functions
 │   │   │   └── api.js
 │   │   ├── App.js          # Main React application
-│   │   ├── axiosConfig.jsx # Axios configuration
+│   │   ├── axiosConfig.jsx 
 │   │   └── index.js        # React entry point
 │   ├── package.json        # Frontend dependencies
-│   └── tailwind.config.js  # Tailwind CSS configuration
-├── .env                    # Environment variables (do not commit)
+│   └── tailwind.config.js  
+├── .env                    # Environment variables (will delete latewr)
 ├── .gitignore             # Git ignore rules
 ├── package.json           # Root package.json
-└── README.md              # This file
+└── README.md              # For setup instructions
 ```
 
 ### Key Files:
@@ -208,13 +207,13 @@ startupmanager/
    3. `git commit -am "<message/description>" ` commit all the changes. notice: message must be inside quotation marks.
    4. `git push` push your code to the remote repository. if your working branch is existing on the remote repository.
    5. `git push --set-upstream origin upstream <branch_name>` push and update your new branch and code to the remote repository.
-3. Another scenario: you're working on your branch and you want to update a newest code from other developers or just from the main branch (e.g: `develop`).
+3. Another scenario: you're working on your branch and you want to update a newest code from other developers or just from the main branch (e.g: `main`).
 
    1. Commit your branch first by using the following `Basic Commit Flow`.
-   2. Switch to a branch you'd like to pull (e.g: `develop`) by using `git checkout develop`.
-   3. Update the `develop` to up to date by using `git pull`.
+   2. Switch to a branch you'd like to pull (e.g: `main`) by using `git checkout main`.
+   3. Update the `main` to up to date by using `git pull`.
    4. Switch back to your working branch by using `git check ot <your_branch>`. (replace `<your_branch>` to branch name (e.g: `git checkout db-config`))
-   5. Merge `develop` into your working branch by using `git merge develop` (you can change `develop` to your choice).
+   5. Merge `main` into your working branch by using `git merge main` (you can change `main` to your choice).
       <br><br><br><br>
       <h1 align="center">Perfect, push it! 💥</h1>
 
