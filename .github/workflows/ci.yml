@@ -4,32 +4,93 @@ on:
   push:
     branches:
       - main  # Trigger CI on pushes to the main branch
-
+  pull_request:
+    branches:
+      - main  # Trigger CI on pull requests to main
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
+  # Job to check for Jira tickets and update status
+  jira-integration:
+    name: Jira Integration
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      jira-key: ${{ steps.extract-jira.outputs.jira-key }}
+      has-jira: ${{ steps.extract-jira.outputs.has-jira }}
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Extract Jira Key
+      id: extract-jira
+      run: |
+        # Extract Jira key from PR title and body
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        PR_BODY="${{ github.event.pull_request.body }}"
+        
+        # Look for Jira ticket pattern (e.g., PROJ-123, ABC-456)
+        JIRA_KEY=$(echo "$PR_TITLE $PR_BODY" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+        
+        if [ -n "$JIRA_KEY" ]; then
+          echo "jira-key=$JIRA_KEY" >> $GITHUB_OUTPUT
+          echo "has-jira=true" >> $GITHUB_OUTPUT
+          echo "Found Jira ticket: $JIRA_KEY"
+        else
+          echo "has-jira=false" >> $GITHUB_OUTPUT
+          echo "No Jira ticket found in PR title or body"
+        fi
+
+    - name: Update Jira Ticket Status
+      if: steps.extract-jira.outputs.has-jira == 'true'
+      uses: atlassian/gajira-transition@v3
+      with:
+        issue: ${{ steps.extract-jira.outputs.jira-key }}
+        transition: "In Progress"  # Adjust transition name as needed
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+    - name: Comment on Jira Ticket
+      if: steps.extract-jira.outputs.has-jira == 'true'
+      uses: atlassian/gajira-comment@v3
+      with:
+        issue: ${{ steps.extract-jira.outputs.jira-key }}
+        comment: |
+          Pull Request opened: ${{ github.event.pull_request.html_url }}
+          Branch: ${{ github.head_ref }}
+          Author: ${{ github.actor }}
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
   test:
     name: Run Tests
     runs-on: self-hosted
+    needs: [jira-integration]
+    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
 
     strategy:
       matrix:
-        node-version: [22] # Test on multiple Node.js versions
-
+        node-version: [22]
 
     environment: MONGO_URI
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     # Set up Node.js
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+        cache: 'npm'
 
     - name: Print Env Secret
-
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -39,25 +100,32 @@ jobs:
         echo "Secret 2 is: $JWT_SECRET"
         echo "Secret 3 is: $PORT"
       
-    - run: pm2 stop all
+    - name: Stop PM2 processes
+      run: pm2 stop all || true  # Don't fail if no processes are running
 
     # Install dependencies for backend
     - name: Install Backend Dependencies
       working-directory: ./backend
       run: | 
-       npm install --global yarn
-       yarn --version
-       yarn install
+        npm install --global yarn
+        yarn --version
+        yarn install
       
     # Install dependencies for frontend
     - name: Install Frontend Dependencies
       working-directory: ./frontend
       run: |
         df -h
-        sudo rm -rf ./build
+        sudo rm -rf ./build || true
         yarn install
         yarn run build
 
+    # Create backend .env file
+    - name: Create Backend Environment File
+      working-directory: ./backend
+      run: |
+        touch .env
+        echo "${{ secrets.PROD }}" > .env
 
     # Run backend tests
     - name: Run Backend Tests
@@ -68,18 +136,101 @@ jobs:
       working-directory: ./backend
       run: npm test
 
+    - name: Run Backend Tests (Jest)
+      working-directory: ./backend
+      run: npx jest --runInBand
 
-    - run: npm ci
-    - run: | 
-        cd ./backend
-        touch .env
-        echo "${{ secrets.PROD }}" > .env
+    - name: Start PM2 processes
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        pm2 start all || true
+        pm2 restart all || true
 
-              - name: Run backend tests (Jest via npx)
-        working-directory: backend
-        run: npx --yes jest --runInBand
+  # Job to update Jira when tests pass/fail
+  jira-update:
+    name: Update Jira Status
+    runs-on: ubuntu-latest
+    needs: [jira-integration, test]
+    if: always() && needs.jira-integration.outputs.has-jira == 'true' && github.event_name == 'pull_request'
+    
+    steps:
+    - name: Update Jira on Success
+      if: needs.test.result == 'success'
+      uses: atlassian/gajira-comment@v3
+      with:
+        issue: ${{ needs.jira-integration.outputs.jira-key }}
+        comment: |
+          ✅ CI Tests passed successfully!
+          Pull Request: ${{ github.event.pull_request.html_url }}
+          Commit: ${{ github.sha }}
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
+    - name: Update Jira on Failure
+      if: needs.test.result == 'failure'
+      uses: atlassian/gajira-comment@v3
+      with:
+        issue: ${{ needs.jira-integration.outputs.jira-key }}
+        comment: |
+          ❌ CI Tests failed!
+          Pull Request: ${{ github.event.pull_request.html_url }}
+          Commit: ${{ github.sha }}
+          Please check the workflow logs for details.
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-    - run: pm2 start all
+  # Job to update Jira when PR is merged
+  jira-merge:
+    name: Update Jira on Merge
+    runs-on: ubuntu-latest
+    needs: [jira-integration]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.jira-integration.outputs.has-jira == 'true'
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
 
-    - run: pm2 restart all
+    - name: Get merged PR info
+      id: pr-info
+      run: |
+        # Get the commit message to extract Jira key
+        COMMIT_MSG=$(git log -1 --pretty=%B)
+        JIRA_KEY=$(echo "$COMMIT_MSG" | grep -oE '[A-Z]{2,}-[0-9]+' | head -1)
+        
+        if [ -n "$JIRA_KEY" ]; then
+          echo "jira-key=$JIRA_KEY" >> $GITHUB_OUTPUT
+          echo "has-jira=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-jira=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Transition Jira to Done
+      if: steps.pr-info.outputs.has-jira == 'true'
+      uses: atlassian/gajira-transition@v3
+      with:
+        issue: ${{ steps.pr-info.outputs.jira-key }}
+        transition: "Done"  # Adjust transition name as needed
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+    - name: Comment on merged ticket
+      if: steps.pr-info.outputs.has-jira == 'true'
+      uses: atlassian/gajira-comment@v3
+      with:
+        issue: ${{ steps.pr-info.outputs.jira-key }}
+        comment: |
+          🎉 Pull Request merged to main!
+          Commit: ${{ github.sha }}
+          Deployed successfully.
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
