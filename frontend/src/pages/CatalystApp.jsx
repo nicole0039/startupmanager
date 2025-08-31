@@ -1,67 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Building2, Users, FileText, Plus, Edit, Trash2, Eye, CheckCircle, XCircle, UserPlus, Search, Filter, Menu, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { mentorAPI, applicationAPI } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import NotificationModal from '../components/NotificationModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const CatalystApp = () => {
-  // Mock user data and authentication state
-  const [user, setUser] = useState({
-    id: 1,
-    name: 'John Doe',
-    email: 'john@catalyst.edu',
-    role: 'coordinator' // coordinator, startup
-  });
+  const { user, logout, isLoading } = useAuth();
+  const navigate = useNavigate();
 
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Application Management State
-  const [applications, setApplications] = useState([
-    {
-      id: 1,
-      companyName: 'TechStartup Inc',
-      founderName: 'Alice Johnson',
-      email: 'alice@techstartup.com',
-      description: 'AI-powered customer service platform',
-      stage: 'seed',
-      status: 'pending',
-      submissionDate: '2025-08-15',
-      userId: 2
-    },
-    {
-      id: 2,
-      companyName: 'EcoSolutions',
-      founderName: 'Bob Smith',
-      email: 'bob@ecosolutions.com',
-      description: 'Sustainable packaging solutions',
-      stage: 'prototype',
-      status: 'approved',
-      submissionDate: '2025-08-10',
-      userId: 3
-    }
-  ]);
+  const [applications, setApplications] = useState([]);
 
   // Mentor Management State
-  const [mentors, setMentors] = useState([
-    {
-      id: 1,
-      name: 'Dr. Sarah Wilson',
-      email: 'sarah@catalyst.edu',
-      expertise: 'Technology & AI',
-      experience: '15 years',
-      bio: 'Former CTO at multiple tech companies',
-      availability: 'available',
-      assignedStartups: []
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      email: 'michael@catalyst.edu',
-      expertise: 'Business Strategy',
-      experience: '12 years',
-      bio: 'Serial entrepreneur and business consultant',
-      availability: 'busy',
-      assignedStartups: [1]
-    }
-  ]);
+  const [mentors, setMentors] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // UI State Management
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -89,85 +46,246 @@ const CatalystApp = () => {
     availability: 'available'
   });
 
-  // Epic 2: Application Management Functions
-  const handleSubmitApplication = (e) => {
-    e.preventDefault();
-    const newApplication = {
-      id: Date.now(),
-      ...applicationForm,
-      status: 'pending',
-      submissionDate: new Date().toISOString().split('T')[0],
-      userId: user.id
-    };
-    setApplications([...applications, newApplication]);
-    setApplicationForm({
-      companyName: '',
-      founderName: '',
-      email: '',
-      description: '',
-      stage: 'idea'
+  // Modal states
+  const [notificationModal, setNotificationModal] = useState({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
+  // Redirect to login if not authenticated (only after loading is complete)
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/login');
+      return;
+    }
+  }, [user, navigate, isLoading]);
+
+  // Load mentors and applications from API
+  useEffect(() => {
+    if (user) {
+      loadMentors();
+      loadApplications();
+    }
+  }, [user]);
+
+  // Show loading if auth is still loading
+  if (isLoading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+  }
+
+  // Show loading if user is not yet loaded (but auth loading is complete)
+  if (!user) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Redirecting...</div>;
+  }
+
+  // Helper functions for modals
+  const showNotification = (type, title, message) => {
+    setNotificationModal({
+      isOpen: true,
+      type,
+      title,
+      message
     });
-    setShowModal(false);
   };
 
-  const handleUpdateApplication = (e) => {
+  const closeNotification = () => {
+    setNotificationModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const showConfirmation = (title, message, onConfirm) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm
+    });
+  };
+
+  const closeConfirmation = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const loadMentors = async () => {
+    try {
+      setLoading(true);
+      const response = await mentorAPI.getMentors();
+      if (response.success) {
+        setMentors(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading mentors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadApplications = async () => {
+    try {
+      const response = await applicationAPI.getApplications();
+      if (response.success) {
+        setApplications(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading applications:', error);
+    }
+  };
+
+  // Epic 2: Application Management Functions
+  const handleSubmitApplication = async (e) => {
     e.preventDefault();
-    setApplications(applications.map(app => 
-      app.id === selectedItem.id ? { ...app, ...applicationForm } : app
-    ));
-    setShowModal(false);
-    setSelectedItem(null);
+    try {
+      const response = await applicationAPI.createApplication(applicationForm);
+      if (response.success) {
+        setApplications([...applications, response.data]);
+        setApplicationForm({
+          companyName: '',
+          founderName: '',
+          email: '',
+          description: '',
+          stage: 'idea'
+        });
+        setShowModal(false);
+        showNotification('success', 'Success', 'Application submitted successfully!');
+      }
+    } catch (error) {
+      console.error('Error creating application:', error);
+      showNotification('error', 'Error', 'Failed to submit application. Please try again.');
+    }
+  };
+
+  const handleUpdateApplication = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await applicationAPI.updateApplication(selectedItem._id, applicationForm);
+      if (response.success) {
+        setApplications(applications.map(app => 
+          app._id === selectedItem._id ? response.data : app
+        ));
+        setShowModal(false);
+        setSelectedItem(null);
+        showNotification('success', 'Success', 'Application updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating application:', error);
+      showNotification('error', 'Error', 'Failed to update application. Please try again.');
+    }
   };
 
   const handleDeleteApplication = (id) => {
-    setApplications(applications.filter(app => app.id !== id));
+    showConfirmation(
+      'Delete Application',
+      'Are you sure you want to delete this application? This action cannot be undone.',
+      async () => {
+        try {
+          const response = await applicationAPI.deleteApplication(id);
+          if (response.success) {
+            setApplications(applications.filter(app => app._id !== id));
+            showNotification('success', 'Success', 'Application deleted successfully!');
+          }
+        } catch (error) {
+          console.error('Error deleting application:', error);
+          showNotification('error', 'Error', 'Failed to delete application. Please try again.');
+        }
+      }
+    );
   };
 
-  const handleReviewApplication = (id, status) => {
-    setApplications(applications.map(app => 
-      app.id === id ? { ...app, status } : app
-    ));
+  const handleReviewApplication = async (id, status) => {
+    try {
+      const response = await applicationAPI.reviewApplication(id, status);
+      if (response.success) {
+        setApplications(applications.map(app => 
+          app._id === id ? response.data : app
+        ));
+        showNotification('success', 'Success', `Application ${status} successfully!`);
+      }
+    } catch (error) {
+      console.error('Error reviewing application:', error);
+      showNotification('error', 'Error', 'Failed to review application. Please try again.');
+    }
   };
 
   // Epic 3: Mentor Management Functions
-  const handleAddMentor = (e) => {
+  const handleAddMentor = async (e) => {
     e.preventDefault();
-    const newMentor = {
-      id: Date.now(),
-      ...mentorForm,
-      assignedStartups: []
-    };
-    setMentors([...mentors, newMentor]);
-    setMentorForm({
-      name: '',
-      email: '',
-      expertise: '',
-      experience: '',
-      bio: '',
-      availability: 'available'
-    });
-    setShowModal(false);
+    try {
+      const response = await mentorAPI.createMentor(mentorForm);
+      if (response.success) {
+        setMentors([...mentors, response.data]);
+        setMentorForm({
+          name: '',
+          email: '',
+          expertise: '',
+          experience: '',
+          bio: '',
+          availability: 'available'
+        });
+        setShowModal(false);
+        showNotification('success', 'Success', 'Mentor created successfully!');
+      }
+    } catch (error) {
+      console.error('Error creating mentor:', error);
+      showNotification('error', 'Error', 'Failed to create mentor. Please try again.');
+    }
   };
 
-  const handleUpdateMentor = (e) => {
+  const handleUpdateMentor = async (e) => {
     e.preventDefault();
-    setMentors(mentors.map(mentor => 
-      mentor.id === selectedItem.id ? { ...mentor, ...mentorForm } : mentor
-    ));
-    setShowModal(false);
-    setSelectedItem(null);
+    try {
+      const response = await mentorAPI.updateMentor(selectedItem._id, mentorForm);
+      if (response.success) {
+        setMentors(mentors.map(mentor => 
+          mentor._id === selectedItem._id ? response.data : mentor
+        ));
+        setShowModal(false);
+        setSelectedItem(null);
+        showNotification('success', 'Success', 'Mentor updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating mentor:', error);
+      showNotification('error', 'Error', 'Failed to update mentor. Please try again.');
+    }
   };
 
   const handleDeleteMentor = (id) => {
-    setMentors(mentors.filter(mentor => mentor.id !== id));
+    showConfirmation(
+      'Delete Mentor',
+      'Are you sure you want to delete this mentor? This action cannot be undone.',
+      async () => {
+        try {
+          const response = await mentorAPI.deleteMentor(id);
+          if (response.success) {
+            setMentors(mentors.filter(mentor => mentor._id !== id));
+            showNotification('success', 'Success', 'Mentor deleted successfully!');
+          }
+        } catch (error) {
+          console.error('Error deleting mentor:', error);
+          showNotification('error', 'Error', 'Failed to delete mentor. Please try again.');
+        }
+      }
+    );
   };
 
-  const handleAssignMentor = (mentorId, applicationId) => {
-    setMentors(mentors.map(mentor => 
-      mentor.id === mentorId 
-        ? { ...mentor, assignedStartups: [...mentor.assignedStartups, applicationId] }
-        : mentor
-    ));
+  const handleAssignMentor = async (mentorId, applicationId) => {
+    try {
+      const response = await mentorAPI.assignMentor(mentorId, applicationId);
+      if (response.success) {
+        loadMentors(); // Reload mentors to get updated data
+        showNotification('success', 'Success', 'Mentor assigned successfully!');
+      }
+    } catch (error) {
+      console.error('Error assigning mentor:', error);
+      showNotification('error', 'Error', 'Failed to assign mentor. Please try again.');
+    }
   };
 
   // Modal handlers
@@ -278,6 +396,12 @@ const CatalystApp = () => {
                   {user.role}
                 </span>
               </div>
+              <button
+                onClick={logout}
+                className="text-sm text-gray-600 hover:text-gray-800 px-3 py-1 rounded hover:bg-gray-100 transition-colors"
+              >
+                Logout
+              </button>
             </div>
           </div>
           
@@ -287,9 +411,17 @@ const CatalystApp = () => {
               <div className="px-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700">Welcome, {user.name}</span>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full capitalize">
-                    {user.role}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full capitalize">
+                      {user.role}
+                    </span>
+                    <button
+                      onClick={logout}
+                      className="text-xs text-gray-600 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {['dashboard', 'applications', 'mentors'].map((tab) => (
@@ -396,7 +528,7 @@ const CatalystApp = () => {
               </div>
               <div className="p-4 sm:p-6">
                 {applications.slice(0, 3).map((app) => (
-                  <div key={app.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 border-b last:border-b-0 space-y-2 sm:space-y-0">
+                  <div key={app._id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 border-b last:border-b-0 space-y-2 sm:space-y-0">
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900 text-sm sm:text-base">{app.companyName}</h3>
                       <p className="text-xs sm:text-sm text-gray-600">{app.founderName}</p>
@@ -468,7 +600,7 @@ const CatalystApp = () => {
             {/* Mobile Applications List */}
             <div className="sm:hidden space-y-4">
               {filteredApplications.map((app) => (
-                <div key={app.id} className="bg-white rounded-lg shadow p-4">
+                <div key={app._id} className="bg-white rounded-lg shadow p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">{app.companyName}</h3>
@@ -498,7 +630,7 @@ const CatalystApp = () => {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    {(user.role === 'startup' && app.userId === user.id) && (
+                    {(user.role === 'startup' && app.userId?._id === user.id) && (
                       <>
                         <button
                           onClick={() => openModal('edit-application', app)}
@@ -507,7 +639,7 @@ const CatalystApp = () => {
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteApplication(app.id)}
+                          onClick={() => handleDeleteApplication(app._id)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -517,13 +649,13 @@ const CatalystApp = () => {
                     {user.role === 'coordinator' && app.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => handleReviewApplication(app.id, 'approved')}
+                          onClick={() => handleReviewApplication(app._id, 'approved')}
                           className="p-2 text-green-600 hover:bg-green-50 rounded"
                         >
                           <CheckCircle className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleReviewApplication(app.id, 'rejected')}
+                          onClick={() => handleReviewApplication(app._id, 'rejected')}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                         >
                           <XCircle className="h-4 w-4" />
@@ -551,7 +683,7 @@ const CatalystApp = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredApplications.map((app) => (
-                      <tr key={app.id} className="hover:bg-gray-50">
+                      <tr key={app._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">{app.companyName}</div>
@@ -585,7 +717,7 @@ const CatalystApp = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            {(user.role === 'startup' && app.userId === user.id) && (
+                            {(user.role === 'startup' && app.userId?._id === user.id) && (
                               <>
                                 <button
                                   onClick={() => openModal('edit-application', app)}
@@ -594,7 +726,7 @@ const CatalystApp = () => {
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteApplication(app.id)}
+                                  onClick={() => handleDeleteApplication(app._id)}
                                   className="text-red-600 hover:text-red-900"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -604,13 +736,13 @@ const CatalystApp = () => {
                             {user.role === 'coordinator' && app.status === 'pending' && (
                               <>
                                 <button
-                                  onClick={() => handleReviewApplication(app.id, 'approved')}
+                                  onClick={() => handleReviewApplication(app._id, 'approved')}
                                   className="text-green-600 hover:text-green-900"
                                 >
                                   <CheckCircle className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleReviewApplication(app.id, 'rejected')}
+                                  onClick={() => handleReviewApplication(app._id, 'rejected')}
                                   className="text-red-600 hover:text-red-900"
                                 >
                                   <XCircle className="h-4 w-4" />
@@ -661,7 +793,7 @@ const CatalystApp = () => {
             {/* Mentors Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredMentors.map((mentor) => (
-                <div key={mentor.id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
+                <div key={mentor._id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
                   <div className="p-4 sm:p-6">
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center">
@@ -716,7 +848,7 @@ const CatalystApp = () => {
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleDeleteMentor(mentor.id)}
+                              onClick={() => handleDeleteMentor(mentor._id)}
                               className="p-1 sm:p-2 text-red-600 hover:bg-red-50 rounded"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1050,10 +1182,10 @@ const CatalystApp = () => {
                       .filter(app => app.status === 'approved')
                       .map((app) => (
                         <div
-                          key={app.id}
+                          key={app._id}
                           className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
                           onClick={() => {
-                            handleAssignMentor(selectedItem.id, app.id);
+                            handleAssignMentor(selectedItem._id, app._id);
                             closeModal();
                           }}
                         >
@@ -1091,6 +1223,26 @@ const CatalystApp = () => {
           </div>
         </div>
       )}
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notificationModal.isOpen}
+        onClose={closeNotification}
+        type={notificationModal.type}
+        title={notificationModal.title}
+        message={notificationModal.message}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmation}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Delete"
+        type="danger"
+      />
     </div>
   );
 };
