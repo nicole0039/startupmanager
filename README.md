@@ -14,5 +14,11 @@ Description: Support university incubators in tracking startup applicants, assig
 * **VS code editor** [[https://code.visualstudio.com/](https://code.visualstudio.com/)]** **
 * **MongoDB Account** [[https://account.mongodb.com/account/login](https://account.mongodb.com/account/login)]** - In tutorial, we have also showed how can you create account and database: follow step number 2.**
 * **GitHub Account** [[https://github.com/signup?source=login](https://github.com/signup?source=login)]** **
+Changes :
+* **Create an env file for the mongodb config * **
+* **Application and Mentor router * ***
+* **Application and Mentor model * ***
+* ** Application and Mentor controller * ***
+* **ENV file should be changed for the mongo db connection. * **
 
 ---
